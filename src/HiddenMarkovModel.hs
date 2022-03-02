@@ -1,9 +1,24 @@
+-- transition matrix of a HMM
 type Transitions = [[Float]]
+
+-- emission probability distribution for a hidden state
 type Emissions = [(Float, Char)]
+
+-- probability distribution for the initial hidden state
 type InitialStateDistribution = [Float]
 
+-- hidden state holding identity (== index in transition matrix) and emission distribution
 data HiddenState = HS Int Emissions deriving Show
+
+-- HMM: current state, list of hidden states, transition matrix
 data HiddenMarkovModel = HMM HiddenState [HiddenState] Transitions deriving Show
+
+-- given a list of floats, group them in pairs
+-- drop the last element if the list has uneven length
+tuplefy :: [Float] -> [(Float, Float)]
+tuplefy [x] = []
+tuplefy [x, y] = [(x, y)]
+tuplefy (x:y:xs) = (x, y) : tuplefy xs
 
 -- given a list of floats x_i,
 -- calculate list of cumulative values y_i = \sum_{j = 1}^i x_j
@@ -35,13 +50,38 @@ nextState f hmm@(HMM (HS index _) _ trans) = transition (rollNextState f index t
 emit :: Float -> HiddenMarkovModel -> Char
 emit f (HMM (HS _ es) _ _) = snd $ head $ dropWhile (\(x, y) -> f > x) $ cumulativeEmissions es
 
+-- initialize a HMM given a float using an initial state distribution
 initialize :: Float -> InitialStateDistribution -> HiddenMarkovModel -> HiddenMarkovModel
 initialize f dist (HMM _ states trans) = HMM (states !! initState) states trans
     where initState = length $ takeWhile (\x -> f > x) $ cumulative dist
 
+-- given a list of float 2-tuples and an HMM, emit a character according to the first float
+-- then transition the HMM according to the second, repeat for each tuple in the list
 generate :: [(Float, Float)] -> HiddenMarkovModel -> String
 generate [] hmm = ""
 generate (x:xs) hmm = [emit (fst x) hmm] ++ generate xs (nextState (snd x) hmm)
+
+-- given an emission distribution and a char,
+-- find the probability of the given char being emitted
+emissionProb :: HiddenState -> Char -> Float
+emissionProb (HS _ es) c = if elem c (map snd es) then fst $ filter (\(_, y) -> y == c) es !! 0 else 0.0
+
+-- given an HMM and indices of two states,
+-- find the probability of transitioning from first state to second state
+transitionProb :: HiddenMarkovModel -> Int -> Int -> Float
+transitionProb (HMM _ _ trans) i j = (trans !! i) !! j
+
+-- forward algorithm
+-- given an emitted string and an HMM with initial state distribution,
+-- compute probability of random generation
+-- forwardList :: String -> HiddenMarkovModel -> InitialStateDistribution -> [Float]
+-- forwardList [c] (HMM _ states _) initdist = zipWith (*) initdist $ map (\x -> emissionProb x c) states
+-- forwardList (c:cs) hmm@(HMM _ states trans) initdist = 
+
+-- viterbi algorithm
+-- given an emitted string and a HMM description with initial state distribution,
+-- compute most likely sequence of hidden states that caused the emission
+-- viterbi :: String -> HiddenMarkovModel -> InitialStateDistribution -> [Int]
 
 initial = [0.3, 0.2, 0.5]
 
