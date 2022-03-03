@@ -69,24 +69,19 @@ generate (x:xs) hmm = [emit (fst x) hmm] ++ generate xs (nextState (snd x) hmm)
 emissionProb :: HiddenState -> Char -> Double
 emissionProb (HS _ es) c = if elem c (map snd es) then fst $ filter (\(_, y) -> y == c) es !! 0 else 0.0
 
+emissionProbs :: Char -> [HiddenState] -> [Double]
+emissionProbs c hs = map (\x -> emissionProb x c) hs
+
 -- given an HMM and indices of two states,
 -- find the probability of transitioning from first state to second state
 transitionProb :: HiddenMarkovModel -> Int -> Int -> Double
 transitionProb (HMM _ _ trans) i j = (trans !! i) !! j
 
--- given transition matrix and state j
--- get list of transition probabilities to j
-destTransitionProbs :: Transitions -> HiddenState -> [Double]
-destTransitionProbs trans (HS n _) = map (!! n) trans
-
 forwardList :: String -> HiddenMarkovModel -> InitialStateDistribution -> [Double]
-forwardList [c] (HMM _ states _) initdist = zipWith (*) initdist emissionProbsByState
+forwardList [c] (HMM _ states _) initdist = zipWith (*) initdist $ emissionProbs c states
+forwardList (c:cs) hmm@(HMM _ states trans) initdist = zipWith (*) (emissionProbs c states) $ map sum transitionProbs
     where 
-        emissionProbsByState = map (\x -> emissionProb x c) states
-forwardList (c:cs) hmm@(HMM _ states trans) initdist = zipWith (*) emissionProbsByState $ map sum transitionProbs
-    where 
-        emissionProbsByState = map (\x -> emissionProb x c) states
-        transitionProbs = zipWith (zipWith (*)) (map (destTransitionProbs trans) states) (replicate (length states) (forwardList cs hmm initdist))
+        transitionProbs = zipWith (zipWith (*)) (transpose trans) (replicate (length states) (forwardList cs hmm initdist))
 
 -- forward algorithm
 -- given an emitted string and an HMM with initial state distribution,
@@ -98,31 +93,21 @@ forward cs hmm initdist = sum $ forwardList cs hmm initdist
 -- given an emitted string and a HMM description with initial state distribution,
 -- compute most likely sequence of hidden states that caused the emission
 viterbiList :: String -> HiddenMarkovModel -> InitialStateDistribution -> [(Double, Int)]
-viterbiList [c] (HMM _ states _) initdist = zip (zipWith (*) initdist emissionProbsByState) (replicate (length states) (-1))
+viterbiList [c] (HMM _ states _) initdist = zip (zipWith (*) initdist $ emissionProbs c states) (replicate (length states) (-1))
+viterbiList (c:cs) hmm@(HMM _ states trans) initdist = zip (zipWith (*) (emissionProbs c states) $ map maximum transitionProbs) (snd $ head $ reverse $ sortBy (compare `on` fst) $ zip (map maximum transitionProbs) $ map singleton [0..])
     where
-        emissionProbsByState = map (\x -> emissionProb x c) states
-viterbiList (c:cs) hmm@(HMM _ states trans) initdist = zip (zipWith (*) emissionProbsByState $ map maximum transitionProbs) (snd $ head $ reverse $ sortBy (compare `on` fst) $ zip (map maximum transitionProbs) [[0], [1], [2]])
-    where
-        emissionProbsByState = map (\x -> emissionProb x c) states
         -- for state i at time t, max of transition probability from j to i times prob of being in j at t-1
-        transitionProbs = zipWith (zipWith (*)) (map (destTransitionProbs trans) states) (replicate (length states) (map fst $ viterbiList cs hmm initdist))
+        transitionProbs = zipWith (zipWith (*)) (transpose trans) (replicate (length states) (map fst $ viterbiList cs hmm initdist))
 
---initial = [0.3, 0.2, 0.5]
-initial = [0.0, 1.0, 0.0]
+initial = [0.2, 0.3, 0.5]
 
---transitions = [[0.3, 0.5, 0.2],
---               [0.4, 0.5, 0.1],
---               [0.2, 0.7, 0.1]]
-transitions = [[0.0, 0.0, 1.0],
-               [1.0, 0.0, 0.0],
-               [0.0, 1.0, 0.0]]
+transitions = [[0.4, 0.5, 0.1],
+               [0.2, 0.3, 0.5],
+               [0.4, 0.3, 0.3]]
 
---emissions0 = [(0.3, 'R'), (0.7, 'G')]
---emissions1 = [(0.8, 'G'), (0.2, 'B')]
---emissions2 = [(0.9, 'R'), (0.1, 'G')]
-emissions0 = [(1.0, 'R')]
-emissions1 = [(1.0, 'G')]
-emissions2 = [(1.0, 'B')]
+emissions0 = [(0.3, 'R'), (0.5, 'G'), (0.2, 'B')]
+emissions1 = [(0.6, 'R'), (0.2, 'G'), (0.2, 'B')]
+emissions2 = [(0.1, 'R'), (0.1, 'G'), (0.8, 'B')]
 
 s0 = HS 0 emissions0
 s1 = HS 1 emissions1
