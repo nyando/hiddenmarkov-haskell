@@ -72,45 +72,62 @@ emissionProb (HS _ es) c = if elem c (map snd es) then fst $ filter (\(_, y) -> 
 emissionProbs :: Char -> [HiddenState] -> [Double]
 emissionProbs c hs = map (\x -> emissionProb x c) hs
 
--- given an HMM and indices of two states,
+-- given an HMM and two states,
 -- find the probability of transitioning from first state to second state
-transitionProb :: HiddenMarkovModel -> Int -> Int -> Double
-transitionProb (HMM _ _ trans) i j = (trans !! i) !! j
+transitionProb :: HiddenMarkovModel -> HiddenState -> HiddenState -> Double
+transitionProb (HMM _ _ trans) (HS i _) (HS j _) = (trans !! i) !! j
+
+-- given a character, HMM, and initial state distribution,
+-- return a list p_i of probabilities that the character was emitted from state i
+initialEmissionProb :: Char -> HiddenMarkovModel -> InitialStateDistribution -> [Double]
+initialEmissionProb c (HMM _ states _) initDist = zipWith (*) initDist $ emissionProbs c states
 
 forwardList :: String -> HiddenMarkovModel -> InitialStateDistribution -> [Double]
-forwardList [c] (HMM _ states _) initdist = zipWith (*) initdist $ emissionProbs c states
-forwardList (c:cs) hmm@(HMM _ states trans) initdist = zipWith (*) (emissionProbs c states) $ map sum transitionProbs
+forwardList [c] hmm initDist = initialEmissionProb c hmm initDist
+forwardList (c:cs) hmm@(HMM _ states trans) initDist = zipWith (*) (emissionProbs c states) $ map sum transitionProbs
   where 
-    transitionProbs = zipWith (zipWith (*)) (transpose trans) (replicate (length states) (forwardList cs hmm initdist))
+    transitionProbs = zipWith (zipWith (*)) (transpose trans) (replicate (length states) (forwardList cs hmm initDist))
 
 -- forward algorithm
 -- given an emitted string and an HMM with initial state distribution,
 -- compute probability of random generation
 forward :: String -> HiddenMarkovModel -> InitialStateDistribution -> Double
-forward cs hmm initdist = sum $ forwardList cs hmm initdist
+forward cs hmm initDist = sum $ forwardList cs hmm initDist
 
 argmax :: [Double] -> Int
 argmax xs = snd $ head $ reverse $ sortBy (compare `on` fst) $ zip xs [0..]
 
+-- for state i, calculate a_{ji} \theta_{t - 1}(j) for 1 <= j <= #states
+prefixTransitionProbs :: HiddenMarkovModel -> HiddenState -> [Double] -> [Double]
+prefixTransitionProbs hmm@(HMM _ states _) dest prefixProbs = zipWith (*) (map (\x -> transitionProb hmm x dest) states) prefixProbs
+
+-- for state i, calculate \theta_t(i)
+viterbiTransitionProb :: Char -> HiddenMarkovModel -> HiddenState -> [Double] -> Double
+viterbiTransitionProb c hmm dest prefixProbs = (emissionProb dest c) * (maximum $ prefixTransitionProbs hmm dest prefixProbs)
+
+-- calculate index of most likely previous state given prefix transition probabilities
+viterbiPrevState :: HiddenMarkovModel -> HiddenState -> [Double] -> Int
+viterbiPrevState hmm dest prefixProbs = argmax $ prefixTransitionProbs hmm dest prefixProbs
+
 -- viterbi algorithm
 -- given an emitted string and a HMM description with initial state distribution,
 -- compute most likely sequence of hidden states that caused the emission
---viterbiList :: String -> HiddenMarkovModel -> InitialStateDistribution -> [(Double, Int)]
-viterbiList [c] (HMM _ states _) initdist = (maximum $ zipWith (*) initdist $ emissionProbs c states, -1)
-viterbiList (c:cs) hmm@(HMM _ states trans) initdist = (maximum $ zipWith (*) (emissionProbs c states) (map maximum transitionProbs), argmax $ zipWith (*) (emissionProbs c states) (map maximum transitionProbs))
---  where emissionSourceProbs = zipWith (*) (emissionProbs c states) (map maximum transitionProbs)
-    where transitionProbs = zipWith (zipWith (*)) (transpose trans) (replicate (length states) (map fst $ viterbiList cs hmm initdist))
-            
+viterbiList :: String -> HiddenMarkovModel -> InitialStateDistribution -> [(Double, Int)]
+viterbiList [c] hmm@(HMM _ states _) initDist = zip (initialEmissionProb c hmm initDist) (replicate (length states) (-1))
+viterbiList (c:cs) hmm@(HMM _ states _) initDist = zip (map (\x -> viterbiTransitionProb c hmm x prefixProbs) states) (map (\x -> viterbiPrevState hmm x prefixProbs) states)
+    where prefixProbs = map fst $ viterbiList cs hmm initDist
 
-initial = [0.2, 0.3, 0.5]
+viterbi cs hmm initDist = viterbiList (reverse cs) hmm initDist
 
-transitions = [[0.4, 0.5, 0.1],
-               [0.2, 0.3, 0.5],
-               [0.4, 0.3, 0.3]]
+initial = [1.0, 0.0, 0.0]
 
-emissions0 = [(0.3, 'R'), (0.5, 'G'), (0.2, 'B')]
-emissions1 = [(0.6, 'R'), (0.2, 'G'), (0.2, 'B')]
-emissions2 = [(0.1, 'R'), (0.1, 'G'), (0.8, 'B')]
+transitions = [[0.0, 1.0, 0.0],
+               [0.0, 0.0, 1.0],
+               [1.0, 0.0, 0.0]]
+
+emissions0 = [(1.0, 'R')]
+emissions1 = [(1.0, 'G')]
+emissions2 = [(1.0, 'B')]
 
 s0 = HS 0 emissions0
 s1 = HS 1 emissions1
