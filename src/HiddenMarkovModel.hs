@@ -85,14 +85,13 @@ initialEmissionProb c (HMM _ states _) initDist = zipWith (*) initDist $ emissio
 forwardList :: String -> HiddenMarkovModel -> InitialStateDistribution -> [Double]
 forwardList [c] hmm initDist = initialEmissionProb c hmm initDist
 forwardList (c:cs) hmm@(HMM _ states trans) initDist = zipWith (*) (emissionProbs c states) $ map sum transitionProbs
-  where 
-    transitionProbs = zipWith (zipWith (*)) (transpose trans) (replicate (length states) (forwardList cs hmm initDist))
+  where transitionProbs = zipWith (zipWith (*)) (transpose trans) (replicate (length states) (forwardList cs hmm initDist))
 
 -- forward algorithm
 -- given an emitted string and an HMM with initial state distribution,
 -- compute probability of random generation
 forward :: String -> HiddenMarkovModel -> InitialStateDistribution -> Double
-forward cs hmm initDist = sum $ forwardList cs hmm initDist
+forward cs hmm initDist = sum $ forwardList (reverse cs) hmm initDist
 
 argmax :: [Double] -> Int
 argmax xs = snd $ head $ reverse $ sortBy (compare `on` fst) $ zip xs [0..]
@@ -109,15 +108,27 @@ viterbiTransitionProb c hmm dest prefixProbs = (emissionProb dest c) * (maximum 
 viterbiPrevState :: HiddenMarkovModel -> HiddenState -> [Double] -> Int
 viterbiPrevState hmm dest prefixProbs = argmax $ prefixTransitionProbs hmm dest prefixProbs
 
--- viterbi algorithm
--- given an emitted string and a HMM description with initial state distribution,
--- compute most likely sequence of hidden states that caused the emission
+-- list of likelihoods for state i being last state, along with most likely preceding state
 viterbiList :: String -> HiddenMarkovModel -> InitialStateDistribution -> [(Double, Int)]
 viterbiList [c] hmm@(HMM _ states _) initDist = zip (initialEmissionProb c hmm initDist) (replicate (length states) (-1))
 viterbiList (c:cs) hmm@(HMM _ states _) initDist = zip (map (\x -> viterbiTransitionProb c hmm x prefixProbs) states) (map (\x -> viterbiPrevState hmm x prefixProbs) states)
-    where prefixProbs = map fst $ viterbiList cs hmm initDist
+  where prefixProbs = map fst $ viterbiList cs hmm initDist
 
-viterbi cs hmm initDist = viterbiList (reverse cs) hmm initDist
+-- generate dynamic programming table for viterbi algorithm with likelihood of state sequence and previous state
+viterbiTable :: String -> HiddenMarkovModel -> InitialStateDistribution -> [[(Double, Int)]]
+viterbiTable cs hmm initDist = map (\x -> viterbiList x hmm initDist) (init $ tails $ reverse $ cs)
+
+-- read sequence of most likely states from viterbi DP table
+viterbiStateSeq :: [Int] -> Int -> [[(Double, Int)]] -> [Int]
+viterbiStateSeq acc _ [] = reverse acc
+viterbiStateSeq acc prevIndex (x:xs) = viterbiStateSeq (acc ++ [prevIndex]) (snd $ x !! prevIndex) xs
+
+-- viterbi algorithm
+-- given an emitted string and a HMM description with initial state distribution,
+-- compute most likely sequence of hidden states that caused the emission
+viterbi :: String -> HiddenMarkovModel -> InitialStateDistribution -> [Int]
+viterbi cs hmm initDist = viterbiStateSeq [] endState $ viterbiTable cs hmm initDist
+  where endState = argmax $ map fst $ viterbiList (reverse cs) hmm initDist
 
 initial = [1.0, 0.0, 0.0]
 
@@ -125,9 +136,9 @@ transitions = [[0.0, 1.0, 0.0],
                [0.0, 0.0, 1.0],
                [1.0, 0.0, 0.0]]
 
-emissions0 = [(1.0, 'R')]
-emissions1 = [(1.0, 'G')]
-emissions2 = [(1.0, 'B')]
+emissions0 = [(0.5, 'R'), (0.5, 'G')]
+emissions1 = [(0.5, 'G'), (0.5, 'B')]
+emissions2 = [(0.5, 'B'), (0.5, 'R')]
 
 s0 = HS 0 emissions0
 s1 = HS 1 emissions1
