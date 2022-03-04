@@ -1,6 +1,8 @@
 module Main where
 
-import Lib
+import HiddenMarkovModel
+import System.Environment
+import System.Random
 
 main :: IO ()
-main = someFunc
+main = putStrLn "Hello World"

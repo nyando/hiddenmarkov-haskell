@@ -4,57 +4,62 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 
-name:           hmm-haskell
-version:        0.1.0.0
-description:    Please see the README on GitHub at <https://github.com/githubuser/hmm-haskell#readme>
-homepage:       https://github.com/githubuser/hmm-haskell#readme
-bug-reports:    https://github.com/githubuser/hmm-haskell/issues
-author:         Author name here
-maintainer:     example@example.com
-copyright:      2022 Author name here
+name:           hiddenmarkov-haskell
+version:        1.0.0
+description:    Please see the README on GitHub at <https://github.com/nyando/hiddenmarkov-haskell#readme>
+homepage:       https://github.com/nyando/hiddenmarkov-haskell#readme
+bug-reports:    https://github.com/nyando/hiddenmarkov-haskell/issues
+author:         Nicki Dorrmann
+maintainer:     nicki.dorrmann@googlemail.com
+copyright:      2022 Nicki Dorrmann
 license:        BSD3
 license-file:   LICENSE
 build-type:     Simple
 extra-source-files:
     README.md
-    ChangeLog.md
 
 source-repository head
   type: git
-  location: https://github.com/githubuser/hmm-haskell
+  location: https://github.com/nyando/hiddenmarkov-haskell
 
 library
   exposed-modules:
-      Lib
+      HiddenMarkovModel
   other-modules:
-      Paths_hmm_haskell
+      Paths_hiddenmarkov_haskell
   hs-source-dirs:
       src
   build-depends:
       base >=4.7 && <5
+    , hspec
+    , random
   default-language: Haskell2010
 
-executable hmm-haskell-exe
+executable hiddenmarkov-haskell-exe
   main-is: Main.hs
   other-modules:
-      Paths_hmm_haskell
+      Paths_hiddenmarkov_haskell
   hs-source-dirs:
       app
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
-    , hmm-haskell
+    , hiddenmarkov-haskell
+    , hspec
+    , random
   default-language: Haskell2010
 
-test-suite hmm-haskell-test
+test-suite hiddenmarkov-haskell-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
-      Paths_hmm_haskell
+      Paths_hiddenmarkov_haskell
   hs-source-dirs:
       test
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       base >=4.7 && <5
-    , hmm-haskell
+    , hiddenmarkov-haskell
+    , hspec
+    , random
   default-language: Haskell2010
