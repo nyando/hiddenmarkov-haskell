@@ -56,7 +56,7 @@ emit f (HMM (HS _ es) _ _) = snd $ head $ dropWhile (\(x, y) -> f > x) $ cumulat
 -- initialize a HMM given a float using an initial state distribution
 initialize :: Double -> InitialStateDistribution -> HiddenMarkovModel -> HiddenMarkovModel
 initialize f dist (HMM _ states trans) = HMM (states !! initState) states trans
-    where initState = length $ takeWhile (\x -> f > x) $ cumulative dist
+  where initState = length $ takeWhile (\x -> f > x) $ cumulative dist
 
 -- given a list of float 2-tuples and an HMM, emit a character according to the first float
 -- then transition the HMM according to the second, repeat for each tuple in the list
@@ -80,8 +80,8 @@ transitionProb (HMM _ _ trans) i j = (trans !! i) !! j
 forwardList :: String -> HiddenMarkovModel -> InitialStateDistribution -> [Double]
 forwardList [c] (HMM _ states _) initdist = zipWith (*) initdist $ emissionProbs c states
 forwardList (c:cs) hmm@(HMM _ states trans) initdist = zipWith (*) (emissionProbs c states) $ map sum transitionProbs
-    where 
-        transitionProbs = zipWith (zipWith (*)) (transpose trans) (replicate (length states) (forwardList cs hmm initdist))
+  where 
+    transitionProbs = zipWith (zipWith (*)) (transpose trans) (replicate (length states) (forwardList cs hmm initdist))
 
 -- forward algorithm
 -- given an emitted string and an HMM with initial state distribution,
@@ -89,15 +89,18 @@ forwardList (c:cs) hmm@(HMM _ states trans) initdist = zipWith (*) (emissionProb
 forward :: String -> HiddenMarkovModel -> InitialStateDistribution -> Double
 forward cs hmm initdist = sum $ forwardList cs hmm initdist
 
+argmax :: [Double] -> Int
+argmax xs = snd $ head $ reverse $ sortBy (compare `on` fst) $ zip xs [0..]
+
 -- viterbi algorithm
 -- given an emitted string and a HMM description with initial state distribution,
 -- compute most likely sequence of hidden states that caused the emission
-viterbiList :: String -> HiddenMarkovModel -> InitialStateDistribution -> [(Double, Int)]
-viterbiList [c] (HMM _ states _) initdist = zip (zipWith (*) initdist $ emissionProbs c states) (replicate (length states) (-1))
-viterbiList (c:cs) hmm@(HMM _ states trans) initdist = zip (zipWith (*) (emissionProbs c states) $ map maximum transitionProbs) (snd $ head $ reverse $ sortBy (compare `on` fst) $ zip (map maximum transitionProbs) $ map singleton [0..])
-    where
-        -- for state i at time t, max of transition probability from j to i times prob of being in j at t-1
-        transitionProbs = zipWith (zipWith (*)) (transpose trans) (replicate (length states) (map fst $ viterbiList cs hmm initdist))
+--viterbiList :: String -> HiddenMarkovModel -> InitialStateDistribution -> [(Double, Int)]
+viterbiList [c] (HMM _ states _) initdist = (maximum $ zipWith (*) initdist $ emissionProbs c states, -1)
+viterbiList (c:cs) hmm@(HMM _ states trans) initdist = (maximum $ zipWith (*) (emissionProbs c states) (map maximum transitionProbs), argmax $ zipWith (*) (emissionProbs c states) (map maximum transitionProbs))
+--  where emissionSourceProbs = zipWith (*) (emissionProbs c states) (map maximum transitionProbs)
+    where transitionProbs = zipWith (zipWith (*)) (transpose trans) (replicate (length states) (map fst $ viterbiList cs hmm initdist))
+            
 
 initial = [0.2, 0.3, 0.5]
 
