@@ -13,7 +13,6 @@ author:         Nicki Dorrmann
 maintainer:     nicki.dorrmann@googlemail.com
 copyright:      2022 Nicki Dorrmann
 license:        BSD3
-license-file:   LICENSE
 build-type:     Simple
 extra-source-files:
     README.md
@@ -38,6 +37,7 @@ library
 executable hiddenmarkov-haskell-exe
   main-is: Main.hs
   other-modules:
+      HMMExample
       Paths_hiddenmarkov_haskell
   hs-source-dirs:
       app
