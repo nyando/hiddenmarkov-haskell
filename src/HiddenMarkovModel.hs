@@ -152,3 +152,85 @@ viterbiStateSeq acc prevIndex (x:xs) = viterbiStateSeq (acc ++ [prevIndex]) (snd
 viterbi :: String -> HiddenMarkovModel -> InitialStateDistribution -> [Int]
 viterbi cs hmm initDist = viterbiStateSeq [] endState $ viterbiTable cs hmm initDist
   where endState = argmax $ map fst $ viterbiList (reverse cs) hmm initDist
+
+forwardTable :: String -> HiddenMarkovModel -> InitialStateDistribution -> [[Double]]
+forwardTable cs hmm initDist = reverse $ map (\x -> forwardList x hmm initDist) $ (init $ tails $ reverse $ cs)
+
+backwardTable :: String -> HiddenMarkovModel -> InitialStateDistribution -> [[Double]]
+backwardTable cs hmm initDist = map (\x -> backwardList x hmm) $ (init $ tails $ cs)
+
+-- Table of products of forward and backward variables.
+forwardBackwardTable :: String -> HiddenMarkovModel -> InitialStateDistribution -> [[Double]]
+forwardBackwardTable cs hmm initDist = map (\(x, y) -> zipWith (*) x y) $ zip fwTable bwTable
+  where fwTable = forwardTable cs hmm initDist
+        bwTable = backwardTable cs hmm initDist
+
+normalizeList :: [[Double]] -> [[Double]]
+normalizeList xs = map (\(x, y) -> zipWith (/) x y) (zip xs sums)
+  where sums = map (replicate (length $ head xs)) $ map sum xs
+
+-- Probability of being in state i at time t.
+-- Compute \gamma_i(t) = \alpha_i(t) \beta_i(t) / \sum_{j = 1}^n \alpha_j(t) \beta_j(t).
+gammaTable :: String -> HiddenMarkovModel -> InitialStateDistribution -> [[Double]]
+gammaTable cs hmm initDist = normalizeList $ forwardBackwardTable cs hmm initDist
+
+transitionPairs :: String -> HiddenMarkovModel -> InitialStateDistribution -> [([Double], [Double], Char)]
+transitionPairs cs hmm initDist = zip3 (init fwTable) (tail bwTable) (tail cs)
+  where fwTable = forwardTable cs hmm initDist
+        bwTable = backwardTable cs hmm initDist
+
+pairIndices :: Int -> [(Int, Int)]
+pairIndices n = [(x, y) | x <- [0..(n - 1)], y <- [0..(n - 1)]]
+
+fst3 :: (a, b, c) -> a
+fst3 (a, _, _) = a
+
+snd3 :: (a, b, c) -> b
+snd3 (_, b, _) = b
+
+thd3 :: (a, b, c) -> c
+thd3 (_, _, c) = c
+
+alphaBetaProduct :: HiddenMarkovModel -> ([Double], [Double], Char) -> Int -> Int -> Double
+alphaBetaProduct hmm@(HMM _ states trans) alphaBeta i j = alpha * aij * beta * eprob
+  where alpha = fst3 alphaBeta !! i
+        beta  = snd3 alphaBeta !! j
+        aij   = trans !! i !! j
+        eprob = emissionProb (states !! j) (thd3 alphaBeta)
+
+alphaBetaProducts :: HiddenMarkovModel -> ([Double], [Double], Char) -> [Double]
+alphaBetaProducts hmm@(HMM _ states _) alphaBeta = map (\(i, j) -> alphaBetaProduct hmm alphaBeta i j) (pairIndices $ length states)
+
+matrixify :: [[a]] -> Int -> Int -> [a] -> [[a]]
+matrixify acc _ _ [] = acc
+matrixify acc m n xs = matrixify (acc ++ [take n xs]) (m - 1) n (drop n xs)
+
+xiTable :: String -> HiddenMarkovModel -> InitialStateDistribution -> [[[Double]]]
+xiTable cs hmm@(HMM _ states _) initDist = map (mat) $ normalizeList $ map (\x -> alphaBetaProducts hmm x) tps
+  where mat = matrixify [] (length states) (length states)
+        tps = transitionPairs cs hmm initDist
+
+updateInit :: String -> HiddenMarkovModel -> InitialStateDistribution -> InitialStateDistribution
+updateInit cs hmm initDist = head $ gammaTable cs hmm initDist
+
+sumGammaTable :: [[Double]] -> [Double]
+sumGammaTable gt = foldl (zipWith (+)) (head gt) (tail gt)
+
+sumXiTable :: [[[Double]]] -> [[Double]]
+sumXiTable xt = foldl (zipWith (zipWith (+))) (head xt) (tail xt)
+
+updateTrans :: String -> HiddenMarkovModel -> InitialStateDistribution -> Transitions
+updateTrans cs hmm initDist = map (\x -> zipWith (/) x (sumGammaTable $ gammaTable cs hmm initDist)) $ sumXiTable $ xiTable cs hmm initDist
+
+initial = [0.5, 0.5]
+
+transitions = [[0.5, 0.5],
+               [0.4, 0.6]]
+
+emissions0 = [(0.2, 'A'), (0.3, 'C'), (0.3, 'G'), (0.2, 'T')]
+emissions1 = [(0.3, 'A'), (0.2, 'C'), (0.2, 'G'), (0.3, 'T')]
+
+s0 = HS 0 emissions0
+s1 = HS 1 emissions1
+
+exampleHMM = HMM s0 [s0, s1] transitions
