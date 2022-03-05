@@ -8,6 +8,7 @@ module HiddenMarkovModel (
   initialize,
   generate,
   forward,
+  backward,
   viterbi,
   viterbiTable
 ) where
@@ -97,8 +98,22 @@ forwardList (c:cs) hmm@(HMM _ states trans) initDist = zipWith (*) (emissionProb
 
 -- | Forward Algorithm
 --   Given an emitted string and an HMM with initial state distribution, compute the probability of random generation.
+--   Do this by running through the string, computing the probability of being in any state at time t given a prefix of the emitted string.
 forward :: String -> HiddenMarkovModel -> InitialStateDistribution -> Double
 forward cs hmm initDist = sum $ forwardList (reverse cs) hmm initDist
+
+backwardVariable :: Char -> HiddenMarkovModel -> HiddenState -> [Double] -> Double
+backwardVariable c (HMM _ states trans) (HS i _) backs = sum $ zipWith (*) (zipWith (*) (map (\x -> emissionProb x c) states) (trans !! i)) backs
+
+backwardList :: String -> HiddenMarkovModel -> [Double]
+backwardList [] (HMM _ states _) = replicate (length states) 1
+backwardList (c:cs) hmm@(HMM _ states _) = map (\x -> backwardVariable c hmm x (backwardList cs hmm)) states
+
+-- | Backward Algorithm
+--   Given an emitted string and an HMM with initial state distribution, compute the probability of random generation.
+--   Do this by running through the string backwards, computing the probability of generating a suffix of the emitted string from any state at time t.
+backward :: String -> HiddenMarkovModel -> InitialStateDistribution -> Double
+backward cs hmm@(HMM _ states _) initDist = sum $ zipWith (*) (zipWith (*) initDist (backwardList (tail cs) hmm)) (emissionProbs (head cs) states)
 
 -- | Get the index of the maximum of a list.
 argmax :: [Double] -> Int

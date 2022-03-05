@@ -15,4 +15,5 @@ main = do
                       randomRolls = tuplefy $ take (2 * (read (args !! 1) :: Int)) (randoms g :: [Double])
                         in print $ generate randomRolls model
     "forward"  -> print $ forward (args !! 1) exampleHMM initial
+    "backward" -> print $ backward (args !! 1) exampleHMM initial
     "viterbi"  -> print $ viterbi (args !! 1) exampleHMM initial
