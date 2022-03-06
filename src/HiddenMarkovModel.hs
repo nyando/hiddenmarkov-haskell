@@ -273,4 +273,5 @@ diff ((HMM _ s1 t1), d1) ((HMM _ s2 t2), d2) = transDiffSum + initDistDiffSum + 
 --   Given a string of training data and an initialized HMM, estimate the HMM parameters that maximize the expected value of the string.
 --   Note: The BW algorithm optimizes locally, there is no guarantee of optimality for all initial parameters of the HMM.
 baumWelch :: String -> (HiddenMarkovModel, InitialStateDistribution) -> Double -> (HiddenMarkovModel, InitialStateDistribution)
-baumWelch cs (hmm, initDist) limit = if (diff (hmm, initDist) (baumWelchIteration cs hmm initDist)) < limit then baumWelchIteration cs hmm initDist else baumWelch cs (baumWelchIteration cs hmm initDist) limit
+baumWelch cs (hmm, initDist) limit = if (diff (hmm, initDist) iteration) < limit then iteration else baumWelch cs iteration limit
+  where iteration = baumWelchIteration cs hmm initDist
