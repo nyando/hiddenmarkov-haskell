@@ -41,3 +41,24 @@ The application offers the following execution modes:
 `hiddenmarkov-haskell` includes a few unit tests.
 These were written using the `HSpec` library.
 To run them, call `stack test`.
+
+## Defining an HMM
+
+To define an HMM for use with the application, you will need the following parameters:
+
+- initial state distribution
+- number of hidden states and transition matrix
+- emission alphabet (characters) and emission probabilities by state
+
+The following is an example for an HMM with three hidden states and four emission characters.
+
+```
+INIT 0.4 0.2 0.4
+TRANS 0 0.3 0.2 0.5
+TRANS 1 0.5 0.4 0.1
+TRANS 2 0.8 0.1 0.1
+EMIT A C G T
+EMITSTATE 0 0.3 0.2 0.5 0.0
+EMITSTATE 1 0.2 0.0 0.1 0.7
+EMITSTATE 2 0.0 0.5 0.0 0.5
+```
