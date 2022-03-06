@@ -243,12 +243,34 @@ updateAllStateEmissions :: String -> [[Double]] -> Int -> [HiddenState]
 updateAllStateEmissions cs table stateCount = map (emissionsByStateIndex) [0 .. (stateCount - 1)]
   where emissionsByStateIndex = \x -> HS x (map (!! x) $ updateAllCharEmissions cs table)
 
--- | Baum-Welch Algorithm
---   Given a string of training data and an initialized HMM, estimate the HMM parameters that maximize the expected value of the string.
---   This function performs only one iteration step, repeat it to a desired level of convergence.
---   Note: The BW algorithm optimizes locally, there is no guarantee of optimality for all initial parameters of the HMM.
-baumWelch :: String -> HiddenMarkovModel -> InitialStateDistribution -> (HiddenMarkovModel, InitialStateDistribution)
-baumWelch cs hmm@(HMM _ states trans) initDist = ((HMM (head newStates) newStates newTrans), newInitDist)
+baumWelchIteration :: String -> HiddenMarkovModel -> InitialStateDistribution -> (HiddenMarkovModel, InitialStateDistribution)
+baumWelchIteration cs hmm@(HMM _ states trans) initDist = ((HMM (head newStates) newStates newTrans), newInitDist)
   where newStates = updateAllStateEmissions cs (gammaTable cs hmm initDist) (length states)
         newTrans = updateTransitions cs hmm initDist
         newInitDist = updateInit cs hmm initDist
+
+matrixDiff :: [[Double]] -> [[Double]] -> [[Double]]
+matrixDiff m1 m2 = map (map abs) $ zipWith (zipWith (-)) m1 m2
+
+matrixSum :: [[Double]] -> Double
+matrixSum m = sum $ foldl (zipWith (+)) (head m) (tail m)
+
+emissions :: HiddenState -> Emissions
+emissions (HS _ es) = es
+
+emissionDiffs :: [HiddenState] -> [HiddenState] -> [Double]
+emissionDiffs s1 s2 = map (abs) $ zipWith (-) es1 es2
+  where es1 = map fst $ concat $ map emissions s1
+        es2 = map fst $ concat $ map emissions s2
+
+diff :: (HiddenMarkovModel, InitialStateDistribution) -> (HiddenMarkovModel, InitialStateDistribution) -> Double
+diff ((HMM _ s1 t1), d1) ((HMM _ s2 t2), d2) = transDiffSum + initDistDiffSum + emissionDiffSum
+  where transDiffSum = matrixSum $ matrixDiff t1 t2
+        initDistDiffSum = sum $ map (abs) $ zipWith (-) d1 d2
+        emissionDiffSum = sum $ emissionDiffs s1 s2
+
+-- | Baum-Welch Algorithm
+--   Given a string of training data and an initialized HMM, estimate the HMM parameters that maximize the expected value of the string.
+--   Note: The BW algorithm optimizes locally, there is no guarantee of optimality for all initial parameters of the HMM.
+baumWelch :: String -> (HiddenMarkovModel, InitialStateDistribution) -> Double -> (HiddenMarkovModel, InitialStateDistribution)
+baumWelch cs (hmm, initDist) limit = if (diff (hmm, initDist) (baumWelchIteration cs hmm initDist)) < limit then baumWelchIteration cs hmm initDist else baumWelch cs (baumWelchIteration cs hmm initDist) limit

@@ -22,4 +22,4 @@ main = do
       "forward"    -> print $ forward (args !! 2) hmm initial
       "backward"   -> print $ backward (args !! 2) hmm initial
       "viterbi"    -> print $ viterbi (args !! 2) hmm initial
-      "baumWelch"  -> print $ baumWelch (args !! 2) hmm initial
+      "baumWelch"  -> print $ baumWelch (args !! 2) (hmm, initial) (read (args !! 3) :: Double)
