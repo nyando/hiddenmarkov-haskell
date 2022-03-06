@@ -24,6 +24,7 @@ source-repository head
 library
   exposed-modules:
       HiddenMarkovModel
+      HMMFileReader
   other-modules:
       Paths_hiddenmarkov_haskell
   hs-source-dirs:
