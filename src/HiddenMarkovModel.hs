@@ -10,7 +10,8 @@ module HiddenMarkovModel (
   forward,
   backward,
   viterbi,
-  viterbiTable
+  viterbiTable,
+  baumWelch
 ) where
 
 import Data.List
@@ -153,24 +154,27 @@ viterbi :: String -> HiddenMarkovModel -> InitialStateDistribution -> [Int]
 viterbi cs hmm initDist = viterbiStateSeq [] endState $ viterbiTable cs hmm initDist
   where endState = argmax $ map fst $ viterbiList (reverse cs) hmm initDist
 
+-- | Compute a table of values where the forward variable \alpha_i(t) is at index (t, i) in the resulting table.
 forwardTable :: String -> HiddenMarkovModel -> InitialStateDistribution -> [[Double]]
 forwardTable cs hmm initDist = reverse $ map (\x -> forwardList x hmm initDist) $ (init $ tails $ reverse $ cs)
 
+-- | Compute a table of values where the backward variable \beta_i(t) is at index (t, i) in the resulting table.
 backwardTable :: String -> HiddenMarkovModel -> InitialStateDistribution -> [[Double]]
 backwardTable cs hmm initDist = map (\x -> backwardList x hmm) $ (init $ tails $ cs)
 
--- Table of products of forward and backward variables.
+-- | Table of products of forward and backward variables.
 forwardBackwardTable :: String -> HiddenMarkovModel -> InitialStateDistribution -> [[Double]]
 forwardBackwardTable cs hmm initDist = map (\(x, y) -> zipWith (*) x y) $ zip fwTable bwTable
   where fwTable = forwardTable cs hmm initDist
         bwTable = backwardTable cs hmm initDist
 
+-- | For a list of lists, scale values such that the sum of each sublist is 1.
 normalizeList :: [[Double]] -> [[Double]]
 normalizeList xs = map (\(x, y) -> zipWith (/) x y) (zip xs sums)
   where sums = map (replicate (length $ head xs)) $ map sum xs
 
--- Probability of being in state i at time t.
--- Compute \gamma_i(t) = \alpha_i(t) \beta_i(t) / \sum_{j = 1}^n \alpha_j(t) \beta_j(t).
+-- | Probability of being in state i at time t.
+--   Compute \gamma_i(t) = \alpha_i(t) \beta_i(t) / \sum_{j = 1}^n \alpha_j(t) \beta_j(t).
 gammaTable :: String -> HiddenMarkovModel -> InitialStateDistribution -> [[Double]]
 gammaTable cs hmm initDist = normalizeList $ forwardBackwardTable cs hmm initDist
 
@@ -219,18 +223,32 @@ sumGammaTable gt = foldl (zipWith (+)) (head gt) (tail gt)
 sumXiTable :: [[[Double]]] -> [[Double]]
 sumXiTable xt = foldl (zipWith (zipWith (+))) (head xt) (tail xt)
 
-updateTrans :: String -> HiddenMarkovModel -> InitialStateDistribution -> Transitions
-updateTrans cs hmm initDist = map (\x -> zipWith (/) x (sumGammaTable $ gammaTable cs hmm initDist)) $ sumXiTable $ xiTable cs hmm initDist
+updateTransitions :: String -> HiddenMarkovModel -> InitialStateDistribution -> Transitions
+updateTransitions cs hmm initDist = normalizeList $ map (\x -> zipWith (/) x gammaSum) $ xiSum
+  where gammaSum = sumGammaTable $ gammaTable cs hmm initDist
+        xiSum = sumXiTable $ xiTable cs hmm initDist
 
-initial = [0.5, 0.5]
+emissionIndicator :: Char -> String -> [[Double]] -> [[Double]]
+emissionIndicator c cs table = map snd $ filter (\x -> fst x == c) $ zip cs table
 
-transitions = [[0.5, 0.5],
-               [0.4, 0.6]]
+updateStateCharEmissionProbs :: Char -> String -> [[Double]] -> [Double]
+updateStateCharEmissionProbs c cs table = zipWith (/) (foldl (zipWith (+)) (head indicatorList) (tail indicatorList)) (sumGammaTable table)
+  where indicatorList = emissionIndicator c cs table
 
-emissions0 = [(0.2, 'A'), (0.3, 'C'), (0.3, 'G'), (0.2, 'T')]
-emissions1 = [(0.3, 'A'), (0.2, 'C'), (0.2, 'G'), (0.3, 'T')]
+updateAllCharEmissions :: String -> [[Double]] -> [Emissions]
+updateAllCharEmissions cs table = map (\(x, y) -> zip x $ replicate (length x) y) statesByChar
+  where statesByChar = zip (map (\x -> updateStateCharEmissionProbs x cs table) $ nub cs) (nub cs)
 
-s0 = HS 0 emissions0
-s1 = HS 1 emissions1
+updateAllStateEmissions :: String -> [[Double]] -> Int -> [HiddenState]
+updateAllStateEmissions cs table stateCount = map (emissionsByStateIndex) [0 .. (stateCount - 1)]
+  where emissionsByStateIndex = \x -> HS x (map (!! x) $ updateAllCharEmissions cs table)
 
-exampleHMM = HMM s0 [s0, s1] transitions
+-- | Baum-Welch Algorithm
+--   Given a string of training data and an initialized HMM, estimate the HMM parameters that maximize the expected value of the string.
+--   This function performs only one iteration step, repeat it to a desired level of convergence.
+--   Note: The BW algorithm optimizes locally, there is no guarantee of optimality for all initial parameters of the HMM.
+baumWelch :: String -> HiddenMarkovModel -> InitialStateDistribution -> (HiddenMarkovModel, InitialStateDistribution)
+baumWelch cs hmm@(HMM _ states trans) initDist = ((HMM (head newStates) newStates newTrans), newInitDist)
+  where newStates = updateAllStateEmissions cs (gammaTable cs hmm initDist) (length states)
+        newTrans = updateTransitions cs hmm initDist
+        newInitDist = updateInit cs hmm initDist
