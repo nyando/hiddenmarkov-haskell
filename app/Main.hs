@@ -3,7 +3,6 @@ module Main where
 import Control.Monad
 import HiddenMarkovModel
 import HMMFileReader
-import HMMExample
 import System.Environment
 import System.IO
 import System.Random
