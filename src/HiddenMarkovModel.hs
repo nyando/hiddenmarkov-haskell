@@ -6,6 +6,7 @@ module HiddenMarkovModel (
   InitialStateDistribution,
   tuplefy,
   initialize,
+  emissions,
   generate,
   forward,
   backward,
@@ -16,6 +17,7 @@ module HiddenMarkovModel (
 
 import Data.List
 import Data.Function
+import HMMHelpers
 
 -- | A transition matrix of an HMM.
 type Transitions = [[Double]]
@@ -31,17 +33,6 @@ data HiddenState = HS Int Emissions deriving Show
 
 -- | An HMM is specified by its current state, list of hidden states, and the transition matrix.
 data HiddenMarkovModel = HMM HiddenState [HiddenState] Transitions deriving Show
-
--- | Group a list of floats into pairs, drop the last element if the list has uneven length.
-tuplefy :: [Double] -> [(Double, Double)]
-tuplefy [x] = []
-tuplefy [x, y] = [(x, y)]
-tuplefy (x:y:xs) = (x, y) : tuplefy xs
-
--- | Given a list of floats x_i, calculate list of cumulative values y_i = \sum_{j = 1}^i x_j.
-cumulative :: [Double] -> [Double]
-cumulative [x] = [x]
-cumulative (x:xs) = x:(map (+ x) (cumulative xs))
 
 -- | Produce a cumulative probability distribution given an emission distribution.
 cumulativeEmissions :: Emissions -> Emissions
@@ -97,7 +88,7 @@ forwardList [c] hmm initDist = initialEmissionProb c hmm initDist
 forwardList (c:cs) hmm@(HMM _ states trans) initDist = zipWith (*) (emissionProbs c states) $ map sum transitionProbs
   where transitionProbs = zipWith (zipWith (*)) (transpose trans) (replicate (length states) (forwardList cs hmm initDist))
 
--- | Forward Algorithm
+-- | = Forward Algorithm
 --   Given an emitted string and an HMM with initial state distribution, compute the probability of random generation.
 --   Do this by running through the string, computing the probability of being in any state at time t given a prefix of the emitted string.
 forward :: String -> HiddenMarkovModel -> InitialStateDistribution -> Double
@@ -110,17 +101,13 @@ backwardList :: String -> HiddenMarkovModel -> [Double]
 backwardList [] (HMM _ states _) = replicate (length states) 1
 backwardList (c:cs) hmm@(HMM _ states _) = map (\x -> backwardVariable c hmm x (backwardList cs hmm)) states
 
--- | Backward Algorithm
+-- | = Backward Algorithm
 --   Given an emitted string and an HMM with initial state distribution, compute the probability of random generation.
 --   Do this by running through the string backwards, computing the probability of generating a suffix of the emitted string from any state at time t.
 backward :: String -> HiddenMarkovModel -> InitialStateDistribution -> Double
 backward cs hmm@(HMM _ states _) initDist = sum $ zipWith (*) (zipWith (*) initDist (backwardList (tail cs) hmm)) (emissionProbs (head cs) states)
 
--- | Get the index of the maximum of a list.
-argmax :: [Double] -> Int
-argmax xs = snd $ head $ reverse $ sortBy (compare `on` fst) $ zip xs [0..]
-
--- | For state i, calculate a_{ji} \theta_{t - 1}(j) for 1 <= j <= #states.
+-- | For state i, calculate \[ a_{ji} \theta_{t - 1}(j) \] for 1 <= j <= #states.
 prefixTransitionProbs :: HiddenMarkovModel -> HiddenState -> [Double] -> [Double]
 prefixTransitionProbs hmm@(HMM _ states _) dest prefixProbs = zipWith (*) (map (\x -> transitionProb hmm x dest) states) prefixProbs
 
@@ -147,7 +134,7 @@ viterbiStateSeq :: [Int] -> Int -> [[(Double, Int)]] -> [Int]
 viterbiStateSeq acc _ [] = reverse acc
 viterbiStateSeq acc prevIndex (x:xs) = viterbiStateSeq (acc ++ [prevIndex]) (snd $ x !! prevIndex) xs
 
--- | Viterbi Algorithm
+-- | = Viterbi Algorithm
 --   Given an emitted string and a HMM description with initial state distribution,
 --   compute the most likely sequence of hidden states that caused the emission.
 viterbi :: String -> HiddenMarkovModel -> InitialStateDistribution -> [Int]
@@ -174,7 +161,7 @@ normalizeList xs = map (\(x, y) -> zipWith (/) x y) (zip xs sums)
   where sums = map (replicate (length $ head xs)) $ map sum xs
 
 -- | Probability of being in state i at time t.
---   Compute \gamma_i(t) = \alpha_i(t) \beta_i(t) / \sum_{j = 1}^n \alpha_j(t) \beta_j(t).
+--   Compute \[ \gamma_i(t) = \frac{\alpha_i(t) \beta_i(t)}{\sum_{j = 1}^n \alpha_j(t) \beta_j(t)} \].
 gammaTable :: String -> HiddenMarkovModel -> InitialStateDistribution -> [[Double]]
 gammaTable cs hmm initDist = normalizeList $ forwardBackwardTable cs hmm initDist
 
@@ -182,18 +169,6 @@ transitionPairs :: String -> HiddenMarkovModel -> InitialStateDistribution -> [(
 transitionPairs cs hmm initDist = zip3 (init fwTable) (tail bwTable) (tail cs)
   where fwTable = forwardTable cs hmm initDist
         bwTable = backwardTable cs hmm initDist
-
-pairIndices :: Int -> [(Int, Int)]
-pairIndices n = [(x, y) | x <- [0..(n - 1)], y <- [0..(n - 1)]]
-
-fst3 :: (a, b, c) -> a
-fst3 (a, _, _) = a
-
-snd3 :: (a, b, c) -> b
-snd3 (_, b, _) = b
-
-thd3 :: (a, b, c) -> c
-thd3 (_, _, c) = c
 
 alphaBetaProduct :: HiddenMarkovModel -> ([Double], [Double], Char) -> Int -> Int -> Double
 alphaBetaProduct hmm@(HMM _ states trans) alphaBeta i j = alpha * aij * beta * eprob
@@ -204,10 +179,6 @@ alphaBetaProduct hmm@(HMM _ states trans) alphaBeta i j = alpha * aij * beta * e
 
 alphaBetaProducts :: HiddenMarkovModel -> ([Double], [Double], Char) -> [Double]
 alphaBetaProducts hmm@(HMM _ states _) alphaBeta = map (\(i, j) -> alphaBetaProduct hmm alphaBeta i j) (pairIndices $ length states)
-
-matrixify :: [[a]] -> Int -> Int -> [a] -> [[a]]
-matrixify acc _ _ [] = acc
-matrixify acc m n xs = matrixify (acc ++ [take n xs]) (m - 1) n (drop n xs)
 
 xiTable :: String -> HiddenMarkovModel -> InitialStateDistribution -> [[[Double]]]
 xiTable cs hmm@(HMM _ states _) initDist = map (mat) $ normalizeList $ map (\x -> alphaBetaProducts hmm x) tps
@@ -223,6 +194,8 @@ sumGammaTable gt = foldl (zipWith (+)) (head gt) (tail gt)
 sumXiTable :: [[[Double]]] -> [[Double]]
 sumXiTable xt = foldl (zipWith (zipWith (+))) (head xt) (tail xt)
 
+-- | Update the transition matrix.
+--   \[ a_{ij} = \frac{\sum_{t=0}^{T-1} \xi_{ij}(t)}{\sum_{t=0}^{T-1} \gamma_i(t)} \]
 updateTransitions :: String -> HiddenMarkovModel -> InitialStateDistribution -> Transitions
 updateTransitions cs hmm initDist = normalizeList $ map (\x -> zipWith (/) x gammaSum) $ xiSum
   where gammaSum = sumGammaTable $ gammaTable cs hmm initDist
@@ -249,11 +222,12 @@ baumWelchIteration cs hmm@(HMM _ states trans) initDist = ((HMM (head newStates)
         newTrans = updateTransitions cs hmm initDist
         newInitDist = updateInit cs hmm initDist
 
-matrixDiff :: [[Double]] -> [[Double]] -> [[Double]]
-matrixDiff m1 m2 = map (map abs) $ zipWith (zipWith (-)) m1 m2
-
-matrixSum :: [[Double]] -> Double
-matrixSum m = sum $ foldl (zipWith (+)) (head m) (tail m)
+-- | = Baum-Welch Algorithm
+--   Given a string of training data and an initialized HMM, estimate the HMM parameters that maximize the expected value of the string.
+--   Note: The BW algorithm optimizes locally, there is no guarantee of optimality for all initial parameters of the HMM.
+baumWelch :: String -> (HiddenMarkovModel, InitialStateDistribution) -> Double -> (HiddenMarkovModel, InitialStateDistribution)
+baumWelch cs (hmm, initDist) limit = if (diff (hmm, initDist) iteration) < limit then iteration else baumWelch cs iteration limit
+  where iteration = baumWelchIteration cs hmm initDist
 
 emissions :: HiddenState -> Emissions
 emissions (HS _ es) = es
@@ -268,10 +242,3 @@ diff ((HMM _ s1 t1), d1) ((HMM _ s2 t2), d2) = transDiffSum + initDistDiffSum + 
   where transDiffSum = matrixSum $ matrixDiff t1 t2
         initDistDiffSum = sum $ map (abs) $ zipWith (-) d1 d2
         emissionDiffSum = sum $ emissionDiffs s1 s2
-
--- | Baum-Welch Algorithm
---   Given a string of training data and an initialized HMM, estimate the HMM parameters that maximize the expected value of the string.
---   Note: The BW algorithm optimizes locally, there is no guarantee of optimality for all initial parameters of the HMM.
-baumWelch :: String -> (HiddenMarkovModel, InitialStateDistribution) -> Double -> (HiddenMarkovModel, InitialStateDistribution)
-baumWelch cs (hmm, initDist) limit = if (diff (hmm, initDist) iteration) < limit then iteration else baumWelch cs iteration limit
-  where iteration = baumWelchIteration cs hmm initDist

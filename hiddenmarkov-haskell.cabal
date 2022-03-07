@@ -25,6 +25,7 @@ library
   exposed-modules:
       HiddenMarkovModel
       HMMFileReader
+      HMMHelpers
   other-modules:
       Paths_hiddenmarkov_haskell
   hs-source-dirs:
