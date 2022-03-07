@@ -24,7 +24,7 @@ tuplefy [x] = []
 tuplefy [x, y] = [(x, y)]
 tuplefy (x:y:xs) = (x, y) : tuplefy xs
 
--- | Given a list of numbers \[ x_i \], calculate list of cumulative values \[ y_i = \sum_{j = 1}^i x_j \].
+-- | Given a list of numbers \( x_i \), calculate list of cumulative values: \[ y_i = \sum_{j = 1}^i x_j \]
 cumulative :: (Num a) => [a] -> [a]
 cumulative [x] = [x]
 cumulative (x:xs) = x:(map (+ x) (cumulative xs))
@@ -45,7 +45,7 @@ snd3 (_, b, _) = b
 thd3 :: (a, b, c) -> c
 thd3 (_, _, c) = c
 
--- | Given a list of (m x n) elements, return a (m x n) matrix containing the elements ordered into rows.
+-- | Given a list of \( m \times n \) elements, return a \( m \times n \) matrix containing the elements ordered into rows.
 matrixify :: [[a]] -> Int -> Int -> [a] -> [[a]]
 matrixify acc _ _ [] = acc
 matrixify acc m n xs = matrixify (acc ++ [take n xs]) (m - 1) n (drop n xs)
@@ -54,6 +54,6 @@ matrixify acc m n xs = matrixify (acc ++ [take n xs]) (m - 1) n (drop n xs)
 matrixDiff :: (Num a) => [[a]] -> [[a]] -> [[a]]
 matrixDiff m1 m2 = map (map abs) $ zipWith (zipWith (-)) m1 m2
 
--- | Sum over all components of a matrix.
+-- | Sum over all components of a matrix, i. e. calculate \[ \sum_{i = 1}^m \sum_{j = 1}^n a_{ij} \]
 matrixSum :: (Num a) => [[a]] -> a
 matrixSum m = sum $ foldl (zipWith (+)) (head m) (tail m)

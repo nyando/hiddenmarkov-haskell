@@ -1,8 +1,12 @@
-module HMMFileReader (parse) where
+module HMMFileReader (
+  parse,
+  stringify
+) where
 
 import HiddenMarkovModel
+import Data.List
 
-data OutputState = INIT | TRANS | EMIT | EMITSTATE | DONE
+data OutputState = INIT | TRANS | EMIT | EMITSTATE | DONE deriving Eq
 
 parseInitialStateDistribution :: [String] -> InitialStateDistribution
 parseInitialStateDistribution strs = map (read :: String -> Double) $ tail strs
@@ -43,21 +47,29 @@ concatTuple :: (String, String, String) -> String
 concatTuple (a, b, c) = unwords [a, b, c]
 
 createTransStrings :: Transitions -> [String]
-createTransStrings trans = map concatTuple $ zip3 (repeat "TRANS") (map show [0..]) (unwords $ map show trans)
+createTransStrings trans = map concatTuple $ zip3 transKey index transVals
+  where transKey  = repeat "TRANS"
+        index     = map show [0..]
+        transVals = map unwords $ map (map show) trans
 
 emissionChars :: [HiddenState] -> [String]
 emissionChars states = map (\x -> [x]) $ sort $ nub $ map snd $ concat $ map emissions states
 
 charEmissionProbs :: HiddenState -> [String] -> [Double]
-charEmissionProbs state chars = map (zipWith (\(x, y) -> if x == snd y then fst y else 0.0) (concat chars)) (emissions state)
+charEmissionProbs state chars = map (\x -> emissionProb state x) (concat chars) 
 
 createEmitStateStrings :: [HiddenState] -> [String] -> [String]
-createEmitStateStrings states chars = map concatTuple $ zip3 (repeat "EMITSTATE") (map show[0..]) (map (\x -> unwords $ map show charEmissionProbs x chars) states)
+createEmitStateStrings states chars = map concatTuple $ zip3 (repeat "EMITSTATE") (map show[0..]) (map (\x -> unwords $ map show $ charEmissionProbs x chars) states)
 
 toStrings :: [String] -> OutputState -> (HiddenMarkovModel, InitialStateDistribution) -> [String]
 toStrings acc DONE _ = acc
 toStrings acc state (hmm@(HMM _ states trans), initDist)
-  | state == INIT  = toStrings (acc ++ unwords $ ["INIT"] ++ map show initDist) TRANS (hmm, initDist)
+  | state == INIT  = toStrings (acc ++ [unwords $ ["INIT"] ++ map show initDist]) TRANS (hmm, initDist)
   | state == TRANS = toStrings (acc ++ createTransStrings trans) EMIT (hmm, initDist)
-  | state == EMIT  = toStrings (acc ++ unwords $ ["EMIT"] ++ emissionChars states) EMITSTATE (hmm, initDist)
-  | state == EMITSTATE = toStrings
+  | state == EMIT  = toStrings (acc ++ [unwords $ ["EMIT"] ++ emissionChars states]) EMITSTATE (hmm, initDist)
+  | state == EMITSTATE = toStrings (acc ++ (createEmitStateStrings states $ emissionChars states)) DONE (hmm, initDist)
+
+-- | Create an output string describing an HMM readable by this library.
+--   See the documentation of 'parse' for a description of the syntax used.
+stringify :: (HiddenMarkovModel, InitialStateDistribution) -> String
+stringify hmmtuple = unlines $ toStrings [] INIT hmmtuple

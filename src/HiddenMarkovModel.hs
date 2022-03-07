@@ -7,6 +7,7 @@ module HiddenMarkovModel (
   tuplefy,
   initialize,
   emissions,
+  emissionProb,
   generate,
   forward,
   backward,
@@ -68,7 +69,7 @@ generate (x:xs) hmm = [emit (fst x) hmm] ++ generate xs (nextState (snd x) hmm)
 -- | Given a state, an emission distribution and a char,
 --   find the probability of the given char being emitted from the given state.
 emissionProb :: HiddenState -> Char -> Double
-emissionProb (HS _ es) c = if elem c (map snd es) then fst $ filter (\(_, y) -> y == c) es !! 0 else 0.0
+emissionProb (HS _ es) c = if elem c (map snd es) then fst $ head $ filter (\(_, y) -> y == c) es else 0.0
 
 -- | Get emission probabilities for a given character by HMM states.
 emissionProbs :: Char -> [HiddenState] -> [Double]
