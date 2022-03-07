@@ -23,6 +23,7 @@ parseStateEmissions row chars = filter (\(x, y) -> x > 0) $ zip (map (read :: St
 parseHMM :: HiddenMarkovModel -> InitialStateDistribution -> [Char] -> Int -> [String] -> (HiddenMarkovModel, InitialStateDistribution)
 parseHMM hmm@(HMM _ states trans) initDist es stateCount [] = ((HMM (states !! 0) states trans), initDist)
 parseHMM hmm@(HMM _ states trans) initDist es stateCount (x:xs)
+  | (words $ x)        == []          = parseHMM hmm initDist es stateCount xs
   | (head $ words $ x) == "INIT"      = parseHMM hmm (parseInitialStateDistribution $ words x) [] 0 xs
   | (head $ words $ x) == "TRANS"     = parseHMM (HMM (HS 0 []) states (trans ++ [parseTransitionRow $ words x])) initDist [] 0 xs
   | (head $ words $ x) == "EMIT"      = parseHMM (HMM (HS 0 []) states trans) initDist (parseEmissionChars $ words x) 0 xs
@@ -64,9 +65,9 @@ createEmitStateStrings states chars = map concatTuple $ zip3 (repeat "EMITSTATE"
 toStrings :: [String] -> OutputState -> (HiddenMarkovModel, InitialStateDistribution) -> [String]
 toStrings acc DONE _ = acc
 toStrings acc state (hmm@(HMM _ states trans), initDist)
-  | state == INIT  = toStrings (acc ++ [unwords $ ["INIT"] ++ map show initDist]) TRANS (hmm, initDist)
-  | state == TRANS = toStrings (acc ++ createTransStrings trans) EMIT (hmm, initDist)
-  | state == EMIT  = toStrings (acc ++ [unwords $ ["EMIT"] ++ emissionChars states]) EMITSTATE (hmm, initDist)
+  | state == INIT      = toStrings (acc ++ [unwords $ ["INIT"] ++ map show initDist]) TRANS (hmm, initDist)
+  | state == TRANS     = toStrings (acc ++ createTransStrings trans) EMIT (hmm, initDist)
+  | state == EMIT      = toStrings (acc ++ [unwords $ ["EMIT"] ++ emissionChars states]) EMITSTATE (hmm, initDist)
   | state == EMITSTATE = toStrings (acc ++ (createEmitStateStrings states $ emissionChars states)) DONE (hmm, initDist)
 
 -- | Create an output string describing an HMM readable by this library.

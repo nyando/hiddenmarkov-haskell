@@ -14,11 +14,11 @@ main = do
   
   let (hmm, initial) = parse $ lines content in
     case (args !! 0) of
-      "print"      -> print $ stringify $ (hmm, initial)
+      "print"      -> putStrLn $ stringify $ (hmm, initial)
       "generate"   -> let model = initialize (head (randoms g :: [Double])) initial hmm
                           randomRolls = tuplefy $ take (2 * (read (args !! 2) :: Int)) (randoms g :: [Double])
                             in print $ generate randomRolls model
       "forward"    -> print $ forward (args !! 2) hmm initial
       "backward"   -> print $ backward (args !! 2) hmm initial
       "viterbi"    -> print $ viterbi (args !! 2) hmm initial
-      "baumWelch"  -> print $ stringify $ baumWelch (args !! 2) (hmm, initial) (read (args !! 3) :: Double)
+      "baumWelch"  -> putStrLn $ stringify $ baumWelch (args !! 2) (hmm, initial) (read (args !! 3) :: Double)
