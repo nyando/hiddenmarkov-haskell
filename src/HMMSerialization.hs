@@ -1,4 +1,32 @@
-module HMMFileReader (
+{- |
+
+  Module      :  HMMSerialization
+  Description :  Convert HMM data structure to strings and back.
+  
+  Stability   :  unstable
+  Portability :  portable
+
+  HMMSerialization offers two functions, 'parse' to convert an input string to an HMM structure and 'stringify' for the reverse direction.
+   
+  @
+    INIT 0.5 0.5
+    TRANS 0 0.7 0.3
+    TRANS 1 0.3 0.7
+    EMIT A B
+    EMITSTATE 0 0.5 0.5
+    EMITSTATE 1 0.5 0.5
+  @
+
+  'INIT' defines the probability distribution of the HMM's initial state.
+  The lines beginning with 'TRANS' describe the transition probabilities from one state to the others in the Markov chain.
+  'EMIT' lists all elements of the emission alphabet, i. e. all possible emission symbols of the HMM.
+  'EMITSTATE' specifies the individual emission probabilities of every symbol for a given state.
+
+  This module does not specify an input source or output sink for the consumed/produced strings.
+
+-}
+
+module HMMSerialization (
   parse,
   stringify
 ) where
@@ -20,29 +48,18 @@ parseEmissionChars chars = map head $ tail chars
 parseStateEmissions :: [String] -> [Char] -> Emissions
 parseStateEmissions row chars = filter (\(x, y) -> x > 0) $ zip (map (read :: String -> Double) $ drop 2 row) chars
 
-parseHMM :: HiddenMarkovModel -> InitialStateDistribution -> [Char] -> Int -> [String] -> (HiddenMarkovModel, InitialStateDistribution)
-parseHMM hmm@(HMM _ states trans) initDist es stateCount [] = ((HMM (states !! 0) states trans), initDist)
-parseHMM hmm@(HMM _ states trans) initDist es stateCount (x:xs)
-  | (words $ x)        == []          = parseHMM hmm initDist es stateCount xs
-  | (head $ words $ x) == "INIT"      = parseHMM hmm (parseInitialStateDistribution $ words x) [] 0 xs
-  | (head $ words $ x) == "TRANS"     = parseHMM (HMM (HS 0 []) states (trans ++ [parseTransitionRow $ words x])) initDist [] 0 xs
-  | (head $ words $ x) == "EMIT"      = parseHMM (HMM (HS 0 []) states trans) initDist (parseEmissionChars $ words x) 0 xs
-  | (head $ words $ x) == "EMITSTATE" = parseHMM (HMM (HS 0 []) (states ++ [(HS stateCount (parseStateEmissions (words x) es))]) trans) initDist es (stateCount + 1) xs
+parseHMM :: [String] -> HiddenMarkovModel -> InitialStateDistribution -> [Char] -> Int -> (HiddenMarkovModel, InitialStateDistribution)
+parseHMM [] hmm@(HMM _ states trans) initDist es stateCount = ((HMM (states !! 0) states trans), initDist)
+parseHMM (x:xs) hmm@(HMM _ states trans) initDist es stateCount
+  | (words $ x)        == []          = parseHMM xs hmm initDist es stateCount
+  | (head $ words $ x) == "INIT"      = parseHMM xs hmm (parseInitialStateDistribution $ words x) [] 0
+  | (head $ words $ x) == "TRANS"     = parseHMM xs (HMM (HS 0 []) states (trans ++ [parseTransitionRow $ words x])) initDist [] 0
+  | (head $ words $ x) == "EMIT"      = parseHMM xs (HMM (HS 0 []) states trans) initDist (parseEmissionChars $ words x) 0
+  | (head $ words $ x) == "EMITSTATE" = parseHMM xs (HMM (HS 0 []) (states ++ [(HS stateCount (parseStateEmissions (words x) es))]) trans) initDist es (stateCount + 1)
 
--- | Parse an HMM file.
---   The following syntax defines an example HMM with two states and two emission characters.
---
--- @
---    INIT 0.5 0.5
---    TRANS 0 0.7 0.3
---    TRANS 1 0.3 0.7
---    EMIT A B
---    EMITSTATE 0 0.5 0.5
---    EMITSTATE 1 0.5 0.5
--- @
---
-parse :: [String] -> (HiddenMarkovModel, InitialStateDistribution)
-parse strs = parseHMM (HMM (HS 0 []) [] []) [] [] 0 strs
+-- | Parse an HMM file from an input string.
+parse :: String -> (HiddenMarkovModel, InitialStateDistribution)
+parse str = parseHMM (lines str) (HMM (HS 0 []) [] []) [] [] 0
 
 concatTuple :: (String, String, String) -> String
 concatTuple (a, b, c) = unwords [a, b, c]

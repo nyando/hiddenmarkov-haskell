@@ -24,8 +24,8 @@ source-repository head
 library
   exposed-modules:
       HiddenMarkovModel
-      HMMFileReader
       HMMHelpers
+      HMMSerialization
   other-modules:
       Paths_hiddenmarkov_haskell
   hs-source-dirs:
@@ -39,7 +39,6 @@ library
 executable hiddenmarkov-haskell-exe
   main-is: Main.hs
   other-modules:
-      HMMExample
       Paths_hiddenmarkov_haskell
   hs-source-dirs:
       app

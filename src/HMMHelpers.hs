@@ -1,3 +1,14 @@
+{- |
+
+  Module      :  HMMHelpers
+  Description :  Helper functions for the HMM module.
+  
+  Stability   :  unstable
+  Portability :  portable
+
+  This module contains an assortment of simple helper functions for use with the 'HiddenMarkovModel' module.
+
+-}
 module HMMHelpers (
     argmax,
     tuplefy,

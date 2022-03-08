@@ -1,3 +1,18 @@
+{- |
+
+  Module      :  HiddenMarkovModel
+  Description :  Data structure and algorithms for discrete hidden Markov models (HMMs).
+  
+  Stability   :  unstable
+  Portability :  portable
+
+  This module implements a simple data structure for hidden Markov models with discretely distributed emission symbols.
+  Given an HMM, the 'forward' and 'backward' functions allow the user to solve the evaluation problem for a given realization.
+  The 'viterbi' function implements a Viterbi algorithm for finding the most likely path of hidden states for a given realization.
+  Finally, 'baumWelch' implements the Baum-Welch iterative learning procedure for HMMs under a single emission string input.
+
+-}
+
 module HiddenMarkovModel (
   HiddenMarkovModel(HMM),
   HiddenState(HS),
@@ -230,6 +245,7 @@ baumWelch :: String -> (HiddenMarkovModel, InitialStateDistribution) -> Double -
 baumWelch cs (hmm, initDist) limit = if (diff (hmm, initDist) iteration) < limit then iteration else baumWelch cs iteration limit
   where iteration = baumWelchIteration cs hmm initDist
 
+-- | Get the discrete emission probability distribution for a single hidden state.
 emissions :: HiddenState -> Emissions
 emissions (HS _ es) = es
 
