@@ -36,11 +36,11 @@ import Data.List
 
 data OutputState = INIT | TRANS | EMIT | EMITSTATE | DONE deriving Eq
 
-parseInitialStateDistribution :: [String] -> InitialStateDistribution
-parseInitialStateDistribution strs = map (read :: String -> Double) $ tail strs
+parseInitDist :: [String] -> InitialStateDistribution
+parseInitDist strs = map (read :: String -> Double) $ tail strs
 
-parseTransitionRow :: [String] -> [Double]
-parseTransitionRow strs = map (read :: String -> Double) $ drop 2 strs
+parseTransRow :: [String] -> [Double]
+parseTransRow strs = map (read :: String -> Double) $ drop 2 strs
 
 parseEmissionChars :: [String] -> [Char]
 parseEmissionChars chars = map head $ tail chars
@@ -52,8 +52,8 @@ parseHMM :: [String] -> HiddenMarkovModel -> InitialStateDistribution -> [Char] 
 parseHMM [] hmm@(HMM _ states trans) initDist es stateCount = ((HMM (states !! 0) states trans), initDist)
 parseHMM (x:xs) hmm@(HMM _ states trans) initDist es stateCount
   | (words $ x)        == []          = parseHMM xs hmm initDist es stateCount
-  | (head $ words $ x) == "INIT"      = parseHMM xs hmm (parseInitialStateDistribution $ words x) [] 0
-  | (head $ words $ x) == "TRANS"     = parseHMM xs (HMM (HS 0 []) states (trans ++ [parseTransitionRow $ words x])) initDist [] 0
+  | (head $ words $ x) == "INIT"      = parseHMM xs hmm (parseInitDist $ words x) [] 0
+  | (head $ words $ x) == "TRANS"     = parseHMM xs (HMM (HS 0 []) states (trans ++ [parseTransRow $ words x])) initDist [] 0
   | (head $ words $ x) == "EMIT"      = parseHMM xs (HMM (HS 0 []) states trans) initDist (parseEmissionChars $ words x) 0
   | (head $ words $ x) == "EMITSTATE" = parseHMM xs (HMM (HS 0 []) (states ++ [(HS stateCount (parseStateEmissions (words x) es))]) trans) initDist es (stateCount + 1)
 
