@@ -5,11 +5,41 @@ on:
   pull_request:
     types: [synchronize, opened, reopened]
   push:
+    tags:
+      - "v*"
     branches: [main]
 
 jobs:
-  cabal:
-    name: ${{ matrix.os }} / ghc ${{ matrix.ghc }}
+  create_release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v2
+      
+      - name: create release
+        id: create_release
+        uses: actions/create-release@v1.1.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: ${{ github.ref }}
+          draft: true
+          prerelease: false
+      
+      - name: output Release URL file
+        run: echo "${{ steps.create_release.outputs.upload_url }}" > release_url.txt
+      
+      - name: save Release URL file for publish
+        uses: actions/upload-artifact@v1
+        with:
+          name: release_url
+          path: release_url.txt
+  
+  build_artifact:
+    needs: [create_release]
+    name: ${{ matrix.os }} / ghc ${{ matrix.ghc }} / ${{ github.ref }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -32,21 +62,32 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+    
+    - name: set tag name
+      uses: olegtarasov/get-tag@v2.1
+      id: tag
+      with:
+        tagRegex: "v(.*)"
+        tagRegexGroup: 1
 
     - uses: haskell/actions/setup@v1.2
       id: setup-haskell-cabal
-      name: Setup Haskell
+      name: setup haskell
       with:
         ghc-version: ${{ matrix.ghc }}
         cabal-version: ${{ matrix.cabal }}
 
-    - name: Configure
+    - name: configure
       run: |
         cabal configure --enable-tests --enable-benchmarks --enable-documentation --test-show-details=direct --write-ghc-environment-files=always
 
-    - name: Freeze
+    - name: freeze
       run: |
         cabal freeze
+    
+    - name: test
+      run: |
+        cabal test
 
     - uses: actions/cache@v2
       name: Cache ~/.cabal/store
@@ -54,53 +95,40 @@ jobs:
         path: ${{ steps.setup-haskell-cabal.outputs.cabal-store }}
         key: ${{ runner.os }}-${{ matrix.ghc }}-${{ hashFiles('cabal.project.freeze') }}
 
-    - name: Install dependencies
+    - name: build binary
       run: |
-        cabal build all --only-dependencies
-
-    - name: Build
-      run: |
-        cabal build all
-
-    - name: Test
-      run: |
-        cabal test all
-
-    - name: Documentation
-      run: |
-        cabal haddock
-
-  stack:
-    name: stack / ghc ${{ matrix.ghc }}
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        stack: ["2.7.3"]
-        ghc: ["8.10.7"]
-
-    steps:
-    - uses: actions/checkout@v2
-
-    - uses: haskell/actions/setup@v1.2
-      name: Setup Haskell Stack
+        mkdir dist
+        cabal install --install-method=copy --overwrite-policy=always --installdir=dist
+    
+    - if: matrix.os == "windows-latest"
+      name: set exe extension for windows release
+      run: echo "::set-env name=EXT::.exe"
+    
+    - name: set binary path
+      run: echo "::set-env name=BINARY_PATH::./dist/hiddenmarkov-haskell${{ env.EXT }}"
+    
+    - name: compress binary
+      uses: svenstaro/upx-action@2.0.1
       with:
-        ghc-version: ${{ matrix.ghc }}
-        stack-version: ${{ matrix.stack }}
-
-    - uses: actions/cache@v2
-      name: Cache ~/.stack
+        file: ${{ env.BINARY_PATH }}
+    
+    - name: load release URL
+      uses: actions/download-artifact@v1
       with:
-        path: ~/.stack
-        key: ${{ runner.os }}-${{ matrix.ghc }}-stack
-
-    - name: Install dependencies
+        name: release_url
+    
+    - name: get release file name and upload URL
+      id: get_release_info
       run: |
-        stack build --system-ghc --test --bench --no-run-tests --no-run-benchmarks --only-dependencies
-
-    - name: Build
-      run: |
-        stack build --system-ghc --test --bench --no-run-tests --no-run-benchmarks
-
-    - name: Test
-      run: |
-        stack test --system-ghc
+        echo "::set-output name=upload_url::$(cat release_url/release_url.txt)"
+    
+    - name: upload release asset
+      id: upload-release-asset
+      uses: actions/upload-release-asset@v1.0.1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.get_release_info.outputs.upload_url }}
+        asset_path: ${{ env.BINARY_PATH }}
+        asset_name: hiddenmarkov-haskell-${{ steps.tag.outputs.tag }}-${{ runner.os }}-ghc-${{ matrix.ghc }}${{ env.EXT }}
+        asset_content_type: application/octet-stream
