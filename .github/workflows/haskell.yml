@@ -105,7 +105,7 @@ jobs:
       run: echo "EXT=.exe" >> $GITHUB_ENV
     
     - name: set binary path
-      run: echo "BINARY_PATH=./dist/hiddenmarkov-haskell-1.0.0${{ env.EXT }}" >> $GITHUB_ENV
+      run: echo "BINARY_PATH=./dist/hiddenmarkov-haskell-exe${{ env.EXT }}" >> $GITHUB_ENV
     
     - name: compress binary
       uses: svenstaro/upx-action@2.0.1
