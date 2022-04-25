@@ -100,7 +100,7 @@ jobs:
         mkdir dist
         cabal install --install-method=copy --overwrite-policy=always --installdir=dist
     
-    - if: matrix.os == "windows-latest"
+    - if: matrix.os == 'windows-latest'
       name: set exe extension for windows release
       run: echo "::set-env name=EXT::.exe"
     
