@@ -78,4 +78,5 @@ jobs:
     - uses: ncipollo/release-action@v1
       with:
         artifacts: "./dist/*"
+        allowUpdates: true
         token: ${{ secrets.GITHUB_TOKEN }}
