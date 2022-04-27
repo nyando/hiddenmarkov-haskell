@@ -16,19 +16,7 @@ jobs:
         os: [ubuntu-latest, windows-latest]
         cabal: ["3.6.2.0"]
         ghc:
-          - "8.10.7"
-          - "9.0.2"
           - "9.2.1"
-        exclude:
-          - os: macOS-latest
-            ghc: 9.0.2
-          - os: macOS-latest
-            ghc: 8.10.7
-
-          - os: windows-latest
-            ghc: 9.0.2
-          - os: windows-latest
-            ghc: 8.10.7
 
     steps:
     - uses: actions/checkout@v2
@@ -41,16 +29,13 @@ jobs:
         cabal-version: ${{ matrix.cabal }}
 
     - name: configure
-      run: |
-        cabal configure --enable-tests --enable-benchmarks --enable-documentation --test-show-details=direct --write-ghc-environment-files=always
+      run: cabal configure --enable-tests --enable-benchmarks --enable-documentation --test-show-details=direct --write-ghc-environment-files=always
 
     - name: freeze
-      run: |
-        cabal freeze
+      run: cabal freeze
     
     - name: test
-      run: |
-        cabal test
+      run: cabal test
 
     - uses: actions/cache@v2
       name: Cache ~/.cabal/store

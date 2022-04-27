@@ -26,6 +26,12 @@ To compile on source code changes and execute the program contained in `Main.hs`
 stack run -- [ARGS]
 ```
 
+When running the compiled application downloaded from the *Releases* section, simply run
+
+```powershell
+> .\hiddenmarkov-haskell-exe.exe [ARGS]
+```
+
 The application offers the following execution modes:
 
 - `print [FILE]` - print the HMM data structure defined in `FILE`
@@ -35,12 +41,6 @@ The application offers the following execution modes:
 - `viterbi [FILE] [STRING]` - calculate the most likely hidden state sequence generating realization `STRING` given an HMM defined in `FILE`
 - `baumWelch [FILE] [STRING] [LIMIT]` - perform Baum-Welch estimation on the HMM defined in `FILE` 
   to maximize expectation of `STRING` until the sum of all parameters is smaller than `LIMIT` (convergence limit)
-
-## Testing
-
-`hiddenmarkov-haskell` includes a few unit tests.
-These were written using the `HSpec` library.
-To run them, call `stack test`.
 
 ## Defining an HMM
 
@@ -62,3 +62,9 @@ EMITSTATE 0 0.3 0.2 0.5 0.0
 EMITSTATE 1 0.2 0.0 0.1 0.7
 EMITSTATE 2 0.0 0.5 0.0 0.5
 ```
+
+## Testing
+
+`hiddenmarkov-haskell` includes a few unit tests.
+These were written using the `HSpec` library.
+To run them, call `stack test`.
