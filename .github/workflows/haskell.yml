@@ -7,7 +7,6 @@ on:
   push:
     tags:
       - "*"
-    branches: [main]
 
 jobs:
   create_release:
@@ -114,14 +113,9 @@ jobs:
       id: get_release_info
       run: |
         echo "::set-output name=upload_url::$(cat release_url/release_url.txt)"
-    
-    - name: upload release asset
-      id: upload-release-asset
-      uses: actions/upload-release-asset@v1.0.1
+            
+    - uses: alexellis/upload-assets@0.2.2
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ github.token }}
       with:
-        upload_url: ${{ steps.get_release_info.outputs.upload_url }}
-        asset_path: ${{ env.BINARY_PATH }}
-        asset_name: hiddenmarkov-haskell-${{ github.ref }}-${{ runner.os }}-ghc-${{ matrix.ghc }}${{ env.EXT }}
-        asset_content_type: application/octet-stream
+        asset_paths: '["./dist/*"]'
