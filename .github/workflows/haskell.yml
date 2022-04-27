@@ -74,16 +74,6 @@ jobs:
       uses: svenstaro/upx-action@2.0.1
       with:
         file: ${{ env.BINARY_PATH }}
-    
-    - name: load release URL
-      uses: actions/download-artifact@v1
-      with:
-        name: release_url
-    
-    - name: get release file name and upload URL
-      id: get_release_info
-      run: |
-        echo "::set-output name=upload_url::$(cat release_url/release_url.txt)"
 
     - uses: ncipollo/release-action@v1
       with:
