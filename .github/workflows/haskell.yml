@@ -105,12 +105,12 @@ jobs:
     
     - if: matrix.os == 'windows-latest'
       name: set exe extension for windows release
-      run: echo "BINARY_PATH=./dist/hiddenmarkov-haskell-exe.exe" >> $GITHUB_ENV
+      run: echo "BINARY_PATH=./dist/hiddenmarkov-haskell-exe.exe" >> $env:GITHUB_ENV
     
-    #- name: compress binary
-    #  uses: svenstaro/upx-action@2.0.1
-    #  with:
-    #    file: ${{ env.BINARY_PATH }}
+    - name: compress binary
+      uses: svenstaro/upx-action@2.0.1
+      with:
+        file: ${{ env.BINARY_PATH }}
     
     - name: load release URL
       uses: actions/download-artifact@v1
