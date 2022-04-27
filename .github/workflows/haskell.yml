@@ -114,7 +114,7 @@ jobs:
       run: |
         echo "::set-output name=upload_url::$(cat release_url/release_url.txt)"
             
-    - uses: alexellis/upload-assets@0.2.2
+    - uses: alexellis/upload-assets@0.3.0
       env:
         GITHUB_TOKEN: ${{ github.token }}
       with:
