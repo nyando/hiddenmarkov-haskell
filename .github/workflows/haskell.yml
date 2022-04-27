@@ -6,7 +6,7 @@ on:
     types: [synchronize, opened, reopened]
   push:
     tags:
-      - "v*"
+      - "*"
     branches: [main]
 
 jobs:
@@ -63,13 +63,6 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     
-    - name: set tag name
-      uses: olegtarasov/get-tag@v2.1
-      id: tag
-      with:
-        tagRegex: "v(.*)"
-        tagRegexGroup: 1
-
     - uses: haskell/actions/setup@v1.2
       id: setup-haskell-cabal
       name: setup haskell
@@ -130,5 +123,5 @@ jobs:
       with:
         upload_url: ${{ steps.get_release_info.outputs.upload_url }}
         asset_path: ${{ env.BINARY_PATH }}
-        asset_name: hiddenmarkov-haskell-${{ steps.tagName.outputs.tag }}-${{ runner.os }}-ghc-${{ matrix.ghc }}${{ env.EXT }}
+        asset_name: hiddenmarkov-haskell-${{ github.ref }}-${{ runner.os }}-ghc-${{ matrix.ghc }}${{ env.EXT }}
         asset_content_type: application/octet-stream
